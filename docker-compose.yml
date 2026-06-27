@@ -1,0 +1,17 @@
+services:
+  app:
+    container_name: invest
+    build:
+      context: .
+    ports:
+      - "5628:3000"
+    restart: always
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID}
