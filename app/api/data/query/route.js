@@ -10,7 +10,7 @@ const TABLE_COLUMNS = {
   fund_related: new Set(['fund_code', 'related_sector']),
   fund_secid: new Set(['related_sector', 'secid']),
   fund_topic: new Set(['*', 'id', 'sector_type', 'sector_id', 'sector_name', 'net_inflow', 'change_pct', 'update_at']),
-  ocr_daily_usage: new Set(['count']),
+  ocr_daily_usage: new Set(['count', 'usage_date']),
   gs_qdii: new Set(['fund_code', 'gztime', 'gszzl', 'gzstatus'])
 };
 

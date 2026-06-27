@@ -2343,35 +2343,38 @@ export const fetchFundValuationTrend = async (code, range = '3m') => {
   return isArray(data.data) ? data.data : [];
 };
 
+// ── 基金持仓 OCR 文本解析 ──────────────────────────────────────────────
+// 解析逻辑（提示词、LLM 调用、每日限流、密钥）全部在服务端 app/api/analyze-fund/route.js。
+// 前端只把 OCR 文本 POST 给该路由；密钥不出服务端，不会泄露到浏览器产物。
 export const parseFundTextWithLLM = async (text) => {
   if (!text) return null;
-  if (!isSupabaseConfigured) return null;
-  if (!supabase?.functions?.invoke) return null;
 
   try {
-    const { data, error } = await withRetry(() =>
-      supabase.functions.invoke('analyze-fund', {
-        body: { text }
-      })
-    );
+    const resp = await fetch('/api/analyze-fund', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
 
-    // 处理每日 OCR 用量限流
-    if (data?.error === 'DAILY_LIMIT_EXCEEDED') {
-      const err = new Error(data.message || '今日 OCR 识别次数已达上限');
+    const data = await resp.json().catch(() => null);
+
+    // 每日识别次数用尽：抛出带 code 的错误，由调用方中止整个扫描并提示
+    if (resp.status === 429 || data?.error === 'DAILY_LIMIT_EXCEEDED') {
+      const err = new Error(data?.message || '今日识别次数已达上限');
       err.code = 'DAILY_LIMIT_EXCEEDED';
       err.remaining = 0;
       throw err;
     }
 
-    if (error) return null;
-    if (!data || data.success !== true) return null;
-    if (!isArray(data.data)) return null;
+    if (!resp.ok || !data || data.success !== true || !isArray(data.data)) return null;
 
     // 保持与旧实现兼容：返回 JSON 字符串，由调用方 JSON.parse
     return JSON.stringify(data.data);
   } catch (e) {
     // 限流错误向上传播，让调用方捕获并展示提示
     if (e?.code === 'DAILY_LIMIT_EXCEEDED') throw e;
+    console.error('基金文本解析失败:', e);
     return null;
   }
 };
