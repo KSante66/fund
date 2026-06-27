@@ -30,6 +30,7 @@ dayjs.extend(isSameOrAfter);
 
 import { DEFAULT_TZ } from '@/app/constants';
 import { isNavUpdated } from '@/app/lib/fundHelpers';
+import { buildFundTrendTransactions } from '@/app/lib/tradeMarkers.mjs';
 const getBrowserTimeZone = () => {
   if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -338,6 +339,10 @@ export default function Index({
 
   const holding = holdings?.[f?.code];
   const profit = getHoldingProfit?.(f, holding) ?? null;
+  const trendTransactions = useMemo(
+    () => buildFundTrendTransactions(transactions?.[f?.code] || [], holding),
+    [transactions, f?.code, holding]
+  );
   const hasHoldings =
     topHoldings.holdingsIsLastQuarter && isArray(topHoldings.holdings) && topHoldings.holdings.length > 0;
   // “我的收益”(每日收益)只依赖份额；成本价缺失也应可展示
@@ -947,8 +952,7 @@ export default function Index({
               code={f.code}
               isExpanded
               onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
-              // 未设置持仓金额时，不展示买入/卖出标记与标签
-              transactions={profit ? transactions?.[f.code] || [] : []}
+              transactions={trendTransactions}
               theme={theme}
               hideHeader
             />
@@ -1061,8 +1065,7 @@ export default function Index({
             code={f.code}
             isExpanded={isTrendExpanded}
             onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
-            // 未设置持仓金额时，不展示买入/卖出标记与标签
-            transactions={profit ? transactions?.[f.code] || [] : []}
+            transactions={trendTransactions}
             theme={theme}
           />
           {showValuationTrend && (

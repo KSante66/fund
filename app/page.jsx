@@ -34,7 +34,7 @@ import MarketIndexAccordion from './components/MarketIndexAccordion';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { getAllValuationSeries, clearFund } from './lib/valuationTimeseries';
 import { aggregatePortfolioDailyEarnings } from './lib/dailyEarnings';
-import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
+import { loadHolidaysForYears, isTradingDay as isDateTradingDay, addTradingDays } from './lib/tradingCalendar';
 import { asyncPool } from './lib/asyncHelper';
 import {
   fetchSmartFundNetValue,
@@ -1576,6 +1576,15 @@ export default function HomePage() {
       if (currentPending.length === 0) return;
 
       let stateChanged = false;
+      const today = toTz(formatDate()).startOf('day');
+      const currentFunds = useStorageStore.getState().funds || [];
+      const fundByCode = new Map(currentFunds.map((fund) => [fund?.code, fund]));
+      const pendingYears = new Set([today.year(), today.year() + 1]);
+      currentPending.forEach((trade) => {
+        if (trade?.date) pendingYears.add(toTz(trade.date).year());
+      });
+      await loadHolidaysForYears([...pendingYears]);
+
       let tempHoldings = { ...useStorageStore.getState().holdings };
       let tempGroupHoldings;
       try {
@@ -1609,6 +1618,15 @@ export default function HomePage() {
         if (trade?.id) handledIds.add(trade.id);
 
         const tradeGid = trade.groupId || null;
+        const fund = fundByCode.get(trade.fundCode);
+        const confirmDays = Number(fund?.confirmDays);
+        if (Number.isFinite(confirmDays) && confirmDays > 0 && trade?.date) {
+          const confirmDate = addTradingDays(toTz(trade.date), confirmDays);
+          if (today.isBefore(confirmDate, 'day')) {
+            continue;
+          }
+        }
+
         let queryDate = trade.date;
         if (trade.isAfter3pm) {
           queryDate = toTz(trade.date).add(1, 'day').format('YYYY-MM-DD');

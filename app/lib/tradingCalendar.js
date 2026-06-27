@@ -54,3 +54,19 @@ export function isTradingDay(date, cache = yearCache) {
   if (!holidays) return true; // 未加载该年数据时，仅排除周末
   return !holidays.has(dateStr);
 }
+
+export function addTradingDays(date, days, cache = yearCache) {
+  let cursor = date.startOf('day');
+  const count = Number(days);
+  if (!Number.isFinite(count) || count <= 0) return cursor;
+
+  let remaining = Math.floor(count);
+  let guard = 370;
+  while (remaining > 0 && guard-- > 0) {
+    cursor = cursor.add(1, 'day');
+    if (isTradingDay(cursor, cache)) {
+      remaining -= 1;
+    }
+  }
+  return cursor;
+}

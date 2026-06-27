@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchFundHistory } from '../api/fund';
 import * as qk from '../lib/query-keys';
 import { getChartAxisAvoidRects, getChartTooltipPosition } from '../lib/chartTooltipPosition';
+import { buildTradeMarkerPoints } from '../lib/tradeMarkers.mjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronIcon } from './Icons';
 import {
@@ -129,24 +130,7 @@ export default function FundTrendChart({
     // Data_grandTotal：在 fetchFundHistory 中解析为 data.grandTotalSeries 数组
     const grandTotalSeries = isArray(data.grandTotalSeries) ? data.grandTotalSeries : [];
 
-    // Map transaction dates to chart indices
-    const dateToIndex = new Map(data.map((d, i) => [d.date, i]));
-    const buyPoints = new Array(data.length).fill(null);
-    const sellPoints = new Array(data.length).fill(null);
-
-    transactions.forEach((t) => {
-      // Simple date matching (assuming formats match)
-      // If formats differ, dayjs might be needed
-      const idx = dateToIndex.get(t.date);
-      if (idx !== undefined) {
-        const val = percentageData[idx];
-        if (t.type === 'buy') {
-          buyPoints[idx] = val;
-        } else {
-          sellPoints[idx] = val;
-        }
-      }
-    });
+    const { buyPoints, sellPoints } = buildTradeMarkerPoints(data, percentageData, transactions);
 
     // 将 Data_grandTotal 的多条曲线按日期对齐到主 labels 上
     const labels = data.map((d) => d.date);
