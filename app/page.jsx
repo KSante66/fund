@@ -3640,7 +3640,7 @@ export default function HomePage() {
   ) => {
     e?.preventDefault?.();
     const seconds = secondsOverride ?? tempSeconds;
-    const ms = Math.max(30, Number(seconds)) * 1000;
+    const ms = Math.max(10, Number(seconds)) * 1000;
     setTempSeconds(Math.round(ms / 1000));
     setRefreshMs(ms);
     const nextShowMarketIndex = isBoolean(showMarketIndexOverride)
@@ -5132,6 +5132,7 @@ export default function HomePage() {
                             mobileBatchClearSelectionRef={mobileBatchClearSelectionRef}
                             handleFundCardDrawerOpenChange={handleFundCardDrawerOpenChange}
                             handleMobileSettingModalOpenChange={handleMobileSettingModalOpenChange}
+                            refreshing={refreshing}
                             displayFunds={displayFunds}
                             linkedHoldingsForAllFav={linkedHoldingsForAllFav}
                             todayStr={todayStr}

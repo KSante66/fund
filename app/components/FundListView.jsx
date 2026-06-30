@@ -42,6 +42,7 @@ const FundListView = React.memo(function FundListView({
   mobileBatchClearSelectionRef,
   handleFundCardDrawerOpenChange,
   handleMobileSettingModalOpenChange,
+  refreshing,
   displayFunds,
   linkedHoldingsForAllFav,
   todayStr,
@@ -72,6 +73,29 @@ const FundListView = React.memo(function FundListView({
   fundTagListsByCode,
   groupTotalHoldingAmount
 }) {
+  const [refreshFlash, setRefreshFlash] = React.useState(false);
+  const prevRefreshingRef = React.useRef(false);
+  const flashStartTimerRef = React.useRef(null);
+  const flashEndTimerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (refreshing && !prevRefreshingRef.current) {
+      if (flashStartTimerRef.current) window.clearTimeout(flashStartTimerRef.current);
+      if (flashEndTimerRef.current) window.clearTimeout(flashEndTimerRef.current);
+      setRefreshFlash(false);
+      flashStartTimerRef.current = window.setTimeout(() => setRefreshFlash(true), 0);
+      flashEndTimerRef.current = window.setTimeout(() => setRefreshFlash(false), 700);
+    }
+    prevRefreshingRef.current = refreshing;
+  }, [refreshing]);
+
+  React.useEffect(() => {
+    return () => {
+      if (flashStartTimerRef.current) window.clearTimeout(flashStartTimerRef.current);
+      if (flashEndTimerRef.current) window.clearTimeout(flashEndTimerRef.current);
+    };
+  }, []);
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -80,7 +104,7 @@ const FundListView = React.memo(function FundListView({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.2 }}
-        className={viewMode === 'card' ? 'grid' : 'table-container glass'}
+        className={`${viewMode === 'card' ? 'grid' : 'table-container glass'} ${refreshFlash ? 'fund-list-refresh-flash' : ''}`}
         style={{ marginTop: isGroupSummarySticky ? 50 : 0 }}
       >
         <div

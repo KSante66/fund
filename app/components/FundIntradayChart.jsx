@@ -55,6 +55,24 @@ const CenterOrigin = forwardRef(({ children, ...props }, ref) => {
 });
 CenterOrigin.displayName = 'CenterOrigin';
 
+async function recognizeImageDate(worker, imageUrl) {
+  try {
+    const response = await fetch(imageUrl, { mode: 'cors', cache: 'no-store' });
+    if (!response.ok) return '';
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType && !contentType.toLowerCase().startsWith('image/')) return '';
+
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) return '';
+
+    const res = await worker.recognize(blob);
+    return res?.data?.text || '';
+  } catch {
+    return '';
+  }
+}
+
 export default function FundIntradayChart({
   series = [],
   referenceNav,
@@ -84,9 +102,9 @@ export default function FundIntradayChart({
         const { getOcrWorker } = await import('@/app/lib/ocr');
         const worker = await getOcrWorker('chi_sim+eng');
         const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(`j4.dfcfw.com/charts/pic6/${fundCode}.png?v=${Date.now()}`)}`;
-        const res = await worker.recognize(proxyUrl);
+        const text = await recognizeImageDate(worker, proxyUrl);
+        if (!text) return false;
 
-        const text = res?.data?.text || '';
         const parts = todayStr.split('-');
         if (parts.length === 3) {
           const shortDate1 = `${parts[1]}-${parts[2]}`;
@@ -96,8 +114,7 @@ export default function FundIntradayChart({
           }
         }
         return false;
-      } catch (e) {
-        console.error('OCR check error:', e);
+      } catch {
         return false;
       }
     },

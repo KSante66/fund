@@ -150,7 +150,7 @@ export default function SettingsModal({
               刷新频率
             </div>
             <div className="chips" style={{ marginBottom: 12 }}>
-              {[30, 60, 120, 300].map((s) => (
+              {[10, 30, 60, 120, 300].map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -166,15 +166,15 @@ export default function SettingsModal({
               className="input"
               type="number"
               inputMode="numeric"
-              min="30"
+              min="10"
               step="5"
               value={localSeconds}
               onChange={(e) => setLocalSeconds(Number(e.target.value))}
               placeholder="自定义秒数"
             />
-            {localSeconds < 30 && (
+            {localSeconds < 10 && (
               <div className="error-text" style={{ marginTop: 8 }}>
-                最小 30 秒
+                最小 10 秒
               </div>
             )}
           </div>
@@ -365,7 +365,7 @@ export default function SettingsModal({
                   isMobile ? localShowGroupDropdownMobile : localShowGroupDropdownPc
                 )
               }
-              disabled={localSeconds < 30}
+              disabled={localSeconds < 10}
             >
               保存并关闭
             </button>
