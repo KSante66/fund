@@ -2546,7 +2546,8 @@ export default function HomePage() {
   const { refreshing, refreshCycleStartRef, manualRefresh, refreshAll } = useRefreshManager({
     scheduleDcaTrades,
     processPendingQueue,
-    deviceConflictModalOpenRef
+    deviceConflictModalOpenRef,
+    isTradingDay
   });
   useEffect(() => {
     refreshAllRef.current = refreshAll;

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { isArray, isNumber, isPlainObject, isString } from 'lodash';
+import { isArray, isBoolean, isNumber, isPlainObject, isString } from 'lodash';
 
 import { useStorageStore, storageStore, useUserStore } from '../stores';
 import { recordValuation, setValuationSeries as persistValuationSeries } from '../lib/valuationTimeseries';
@@ -22,6 +22,9 @@ import { getQueryClient } from '../lib/get-query-client';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+const MARKET_CLOSE_MINUTES = 15 * 60;
+const AUTO_REFRESH_CLOSED_CHECK_MS = 60 * 1000;
 
 const getAddBaseSnapshotFromFund = (fund) => {
   const dwjz = Number(fund?.dwjz);
@@ -42,13 +45,15 @@ const getAddBaseSnapshotFromFund = (fund) => {
  * @param {Function} deps.scheduleDcaTrades - 生成定投待处理交易
  * @param {Function} deps.processPendingQueue - 执行积压的待处理交易
  * @param {React.RefObject} deps.deviceConflictModalOpenRef - 设备冲突弹窗是否打开
+ * @param {boolean} deps.isTradingDay - 当前是否为 A 股交易日
  */
-export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, deviceConflictModalOpenRef }) {
+export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, deviceConflictModalOpenRef, isTradingDay }) {
   const [refreshing, setRefreshing] = useState(false);
   const timerRef = useRef(null);
   const refreshCycleStartRef = useRef(Date.now());
   const refreshingRef = useRef(false);
   const refreshCodesRef = useRef([]);
+  const isTradingDayRef = useRef(isTradingDay);
 
   const scheduleDcaTradesRef = useRef(scheduleDcaTrades);
   const processPendingQueueRef = useRef(processPendingQueue);
@@ -58,6 +63,19 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
     processPendingQueueRef.current = processPendingQueue;
   }, [scheduleDcaTrades, processPendingQueue]);
 
+  useEffect(() => {
+    isTradingDayRef.current = isTradingDay;
+  }, [isTradingDay]);
+
+  const isAutoRefreshAllowed = useCallback(() => {
+    const tradingDay = isTradingDayRef.current;
+    if (isBoolean(tradingDay) && !tradingDay) return false;
+
+    const now = dayjs().tz(TZ);
+    const minutes = now.hour() * 60 + now.minute();
+    return minutes < MARKET_CLOSE_MINUTES;
+  }, []);
+
   // 同步 funds → refreshCodesRef
   const funds = useStorageStore((s) => s.funds);
   useEffect(() => {
@@ -65,15 +83,25 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
   }, [funds]);
 
   const refreshAll = useCallback(
-    async (codes) => {
+    async (codes, options = {}) => {
       const store = useStorageStore.getState();
+
+      if (options.auto === true && !isAutoRefreshAllowed()) {
+        refreshCycleStartRef.current = Date.now();
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          const nextCodes = refreshCodesRef.current || [];
+          if (nextCodes.length) refreshAll(nextCodes, { auto: true });
+        }, AUTO_REFRESH_CLOSED_CHECK_MS);
+        return;
+      }
 
       // 如果弹窗拦截同步中，则不允许执行数据刷新，但保持心跳循环
       if (deviceConflictModalOpenRef.current) {
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           const nextCodes = refreshCodesRef.current || [];
-          if (nextCodes.length) refreshAll(nextCodes);
+          if (nextCodes.length) refreshAll(nextCodes, { auto: true });
         }, store.refreshMs);
         return;
       }
@@ -550,7 +578,7 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           const codes = refreshCodesRef.current || [];
-          if (codes.length) refreshAll(codes);
+          if (codes.length) refreshAll(codes, { auto: true });
         }, currentRefreshMs);
 
         try {
@@ -574,7 +602,7 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
         }
       }
     },
-    [deviceConflictModalOpenRef]
+    [deviceConflictModalOpenRef, isAutoRefreshAllowed]
   );
 
   const manualRefresh = useCallback(async () => {
@@ -595,7 +623,7 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
       timerRef.current = setTimeout(() => {
         const codes = refreshCodesRef.current || [];
         if (codes.length) {
-          refreshAll(codes);
+          refreshAll(codes, { auto: true });
         } else {
           tick();
         }
